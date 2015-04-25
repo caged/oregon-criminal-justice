@@ -1,4 +1,4 @@
-County,Year,Assault,Homicide,Sex Crime,Kidnapping,Robbery,Arson,Burglary,Forgery,Theft,Driving,Drugs,Other
+county,year,assault,homicide,sex_crime,kidnapping,robbery,arson,burglary,forgery,theft,driving,drugs,other
 BAKER,1991,6.4,6.4,44.9,0,0,0,109.1,44.9,70.6,19.3,25.7,51.3
 BAKER,1992,18.9,0,37.9,0,6.3,0,75.7,44.2,18.9,31.5,44.2,113.6
 BAKER,1993,0,12.4,18.6,0,6.2,0,24.7,12.4,49.5,74.2,86.6,55.7
