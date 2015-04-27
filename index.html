@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+<head>
+  <title>Oregon Crime</title>
+  <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <script src="http://d3js.org/topojson.v1.min.js"></script>
+  <script src="simple-statistics.js"></script>
+  <style>
+  body {
+    margin: 0;
+    padding: 0;
+    font: 12px OpenSans-Light;
+  }
+
+  .grid-item {
+    margin: 5px;
+  }
+
+    canvas {
+      display: block;
+    }
+
+    .title {
+      display: block;
+      text-align: center;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+<script>
+function process(row) {
+  var keys = Object.keys(row)
+  keys.forEach(function(k) {
+    var val = row[k]
+    if(!isNaN(val)) row[k] = +val
+  })
+
+  return row
+}
+
+function scaleForRetina(canvas, context) {
+  var width = parseFloat(canvas.attr('width')),
+      height = parseFloat(canvas.attr('height'))
+
+  var devicePixelRatio = window.devicePixelRatio || 1
+  var backingStoreRatio = context.webkitBackingStorePixelRatio ||
+                      context.mozBackingStorePixelRatio ||
+                      context.msBackingStorePixelRatio ||
+                      context.oBackingStorePixelRatio ||
+                      context.backingStorePixelRatio || 1
+
+  var ratio = devicePixelRatio / backingStoreRatio
+
+  if(window.devicePixelRatio != backingStoreRatio)
+    canvas
+      .attr('width', width * ratio)
+      .attr('height', height * ratio)
+      .style('width', width + 'px')
+      .style('height', height + 'px')
+
+    context.scale(ratio, ratio)
+}
+
+var prop        = 'drugs',
+    width       = 1100 * 0.08,
+    height      = 825 * 0.08,
+    color       = d3.scale.linear().range(["hsl(62,100%,90%)", "hsl(228,30%,20%)"]).interpolate(d3.interpolateHcl),
+    projection  = d3.geo.transverseMercator().rotate([120 + 30 / 60, -43 - 40 / 60])
+    path        = d3.geo.path().projection(projection)
+
+d3.json('oregon.json', function(err, oregon) {
+  var geometries = topojson.feature(oregon, oregon.objects.counties)
+
+  projection.scale(1).translate([0, 0])
+  var b = path.bounds(geometries),
+      s = .99 / Math.max((b[1][0] - b[0][0]) / width, (b[1][1] - b[0][1]) / height),
+      t = [(width - s * (b[1][0] + b[0][0])) / 2, (height - s * (b[1][1] + b[0][1])) / 2];
+  projection.scale(s).translate(t)
+
+  d3.csv('charges-all-counties-all-years.csv', process, function(rows) {
+    var data = d3.nest()
+      .key(function(d) { return d.year })
+      .rollup(function(d) {
+        var sum = d3.sum(d, function(f) { return f[prop] }),
+            avg = (sum / d.length)
+        return { crimes: d, state_avg: avg }
+      })
+      .entries(rows)
+
+    var extent = d3.extent(rows, function(d) { return d[prop] })
+    color.domain(extent)
+
+    var elements = d3.select('body').selectAll('.year')
+      .data(data)
+    .enter().append('div')
+      .attr('class', function(d) { return 'grid-item y-' + d.key })
+      .style('float', 'left')
+
+    var canvas = elements.append('canvas')
+      .attr('width', width)
+      .attr('height', height)
+      .on('click', function(d) {
+        var vals = d.values.crimes.sort(function(a, b) { return d3.descending(a[prop], b[prop])})
+        vals.forEach(function(v, i) {
+          console.log(i + 1, v.county, v[prop]);
+        })
+      })
+
+    elements.append('span')
+      .attr('class', 'title')
+      .text(function(d) { return d.key })
+
+    canvas.each(function(year) {
+      var context = this.getContext('2d')
+      scaleForRetina(d3.select(this), context)
+      path.context(context)
+      year.values.crimes.forEach(function(county) {
+        var geo = geometries.features.filter(function(d) { return d.properties.name.toLowerCase() == county.county.toLowerCase() })[0],
+            val = county[prop]
+
+        context.beginPath()
+        context.fillStyle = color(val)
+        context.strokeStyle = '#fff'
+        context.lineWidth = 0.3
+        path(geo)
+        context.fill()
+        context.stroke()
+      })
+    })
+  })
+})
+</script>
+</body>
+</html>
