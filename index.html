@@ -82,9 +82,16 @@ d3.json('oregon.json', function(err, oregon) {
     var data = d3.nest()
       .key(function(d) { return d.year })
       .rollup(function(d) {
-        var sum = d3.sum(d, function(f) { return f[prop] }),
-            avg = (sum / d.length)
-        return { crimes: d, state_avg: avg }
+        var vals = d.map(function(c) { return c[prop] }),
+            sum = d3.sum(vals),
+            mean = sum / d.length,
+            stdev = ss.standard_deviation(vals)
+
+        d.forEach(function(c) {
+          c.zscore = ss.z_score(c[prop], mean, stdev)
+        })
+
+        return { crimes: d, mean: mean, stdev: stdev }
       })
       .entries(rows)
 
@@ -103,7 +110,7 @@ d3.json('oregon.json', function(err, oregon) {
       .on('click', function(d) {
         var vals = d.values.crimes.sort(function(a, b) { return d3.descending(a[prop], b[prop])})
         vals.forEach(function(v, i) {
-          console.log(i + 1, v.county, v[prop]);
+          console.log(i + 1, v.county, v.zscore, v[prop]);
         })
       })
 
@@ -113,8 +120,12 @@ d3.json('oregon.json', function(err, oregon) {
 
     canvas.each(function(year) {
       var context = this.getContext('2d')
+          // extent = d3.extent(year.values.crimes, function(d) { return d.zscore })
+
+      // color.domain(extent)
       scaleForRetina(d3.select(this), context)
       path.context(context)
+
       year.values.crimes.forEach(function(county) {
         var geo = geometries.features.filter(function(d) { return d.properties.name.toLowerCase() == county.county.toLowerCase() })[0],
             val = county[prop]
